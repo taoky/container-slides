@@ -1,0 +1,157 @@
+{% extends "admin_base.html" %}
+
+{% block content %}
+    {% verbatim %}
+    <div id="content-main">
+        <ul class="object-tools">
+            <li><a href="#" @click.prevent="refresh">刷新</a></li>
+            <li><a href="#" class="addlink" @click.prevent="open(null)">新增</a></li>
+        </ul>
+        <form v-if="opened" @submit.prevent="opened_save">
+            <fieldset class="module aligned" :disabled="opened_disabled">
+                <h2 v-if="opened.pk">正在编辑 #{{ opened.pk }}</h2>
+                <h2 v-else>正在创建</h2>
+                <div class="form-row">
+                    <label class="required" for="form-time">时间:</label>
+                    <input class="vTextField" type="text" id="form-time" name="time" v-model="opened.time" required>
+                    <div class="help" v-if="isNaN(new Date(opened.time).valueOf())"><strong>格式错误！</strong></div>
+                    <div class="help" v-else>本地时间: {{ new Date(opened.time).toLocaleString() }}<br>UTC 时间: {{ new Date(opened.time).toJSON() }}</div>
+                </div>
+                <div class="form-row">
+                    <input type="checkbox" id="form-can_view_challenges" name="can_view_challenges" v-model="opened.can_view_challenges">
+                    <label class="vCheckboxLabel required" for="form-can_view_challenges">可以查看题目信息</label>
+                    <div class="help">比赛正常进行时勾选，中途停赛时不勾选，比赛结束后勾选</div>
+                </div>
+                <div class="form-row">
+                    <input type="checkbox" id="form-can_try" name="can_try" v-model="opened.can_try">
+                    <label class="vCheckboxLabel required" for="form-can_try">可以尝试提交</label>
+                    <div class="help">比赛正常进行时勾选，中途停赛时不勾选，比赛结束后短时间内不勾选，之后宣布允许练习时勾选</div>
+                </div>
+                <div class="form-row">
+                    <input type="checkbox" id="form-can_submit" name="can_submit" v-model="opened.can_submit">
+                    <label class="vCheckboxLabel required" for="form-can_submit">提交会被计分</label>
+                    <div class="help">仅在比赛正常进行时勾选</div>
+                </div>
+                <div class="form-row">
+                    <input type="checkbox" id="form-can_update_profile" name="can_update_profile" v-model="opened.can_update_profile">
+                    <label class="vCheckboxLabel required" for="form-can_update_profile">可以修改个人信息</label>
+                    <div class="help">比赛开始前、正常进行、中途停赛、结束后一段时间内勾选，赛后一段时间后不勾选（此时使用默认昵称「选手」）</div>
+                </div>
+                <div class="form-row">
+                    <label for="form-note">说明:</label>
+                    <input class="vTextField" type="text" id="form-note" name="note" v-model="opened.note">
+                    <div class="help">用于报错信息，若不填则为“比赛暂时关闭”</div>
+                </div>
+            </fieldset>
+            <div class="submit-row" v-show="!opened_disabled">
+                <input type="submit" class="default" value="保存">
+                <p class="deletelink-box">
+                    <a v-if="opened.pk" href="#" class="deletelink" @click.prevent="opened_delete">删除</a>
+                    <a v-else href="#" class="deletelink" @click.prevent="opened=undefined">放弃</a>
+                </p>
+            </div>
+        </form>
+        <div class="module" id="changelist" style="display: block">
+            <div class="results">
+                <table id="result_list">
+                    <thead>
+                    <tr>
+                        <th scope="col"><div class="text"><span>#</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>时间</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>可以查看题目信息</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>可以尝试提交</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>提交会被计分</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>可以修改个人信息</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>说明</span></div><div class="clear"></div></th>
+                    </tr>
+                    </thead>
+                    <tbody v-if="objs">
+                    <tr v-for="obj in objs" @click="open(obj)">
+                        <td>{{ obj.pk }}</td>
+                        <td>{{ new Date(obj.time).toLocaleString() }}</td>
+                        <td><img v-if="obj.can_view_challenges" src="/static/admin/img/icon-yes.svg" alt="True"><img v-else src="/static/admin/img/icon-no.svg" alt="False"></td>
+                        <td><img v-if="obj.can_try" src="/static/admin/img/icon-yes.svg" alt="True"><img v-else src="/static/admin/img/icon-no.svg" alt="False"></td>
+                        <td><img v-if="obj.can_submit" src="/static/admin/img/icon-yes.svg" alt="True"><img v-else src="/static/admin/img/icon-no.svg" alt="False"></td>
+                        <td><img v-if="obj.can_update_profile" src="/static/admin/img/icon-yes.svg" alt="True"><img v-else src="/static/admin/img/icon-no.svg" alt="False"></td>
+                        <td>{{ obj.note }}</td>
+                    </tr>
+                    </tbody>
+                </table>
+                <p v-if="!objs">（正在加载）</p>
+            </div>
+        </div>
+    </div>
+    {% endverbatim %}
+    <script>
+    app = new Vue({
+        el: '#content-main',
+        data: {
+            objs: undefined,
+            opened: undefined,
+            opened_disabled: false,
+        },
+        created() {
+            this.refresh();
+        },
+        methods: {
+            refresh() {
+                axios.post('.', {method: 'get_all'})
+                    .then(({data: {value}}) => {
+                        this.objs = value;
+                    })
+                    .catch(({response: {data: {error}}}) => {
+                        alert(error && error.message);
+                    });
+            },
+            open(obj) {
+                if (!obj) {
+                    this.opened = {
+                        pk: null,
+                        time: new Date().toJSON(),
+                        can_view_challenges: false,
+                        can_try: false,
+                        can_submit: false,
+                        can_update_profile: false,
+                        note: '',
+                    };
+                } else {
+                    this.opened = {...obj};
+                }
+            },
+            opened_save() {
+                this.opened_disabled = true;
+                let time = new Date(this.opened.time);
+                if (isNaN(time.valueOf())) {
+                    alert('时间格式错误');
+                    this.opened_disabled = false;
+                    return;
+                }
+                this.opened.time = time.toJSON();
+                axios.post('.', {method: 'save', args: this.opened})
+                    .then(({data: {value}}) => {
+                        this.opened = undefined;
+                        this.refresh();
+                        this.opened_disabled = false;
+                    })
+                    .catch(({response: {data: {error}}}) => {
+                        alert(error && error.message);
+                        this.opened_disabled = false;
+                    });
+            },
+            opened_delete() {
+                this.opened_disabled = true;
+                axios.post('.', {method: 'delete', args: this.opened})
+                    .then(({data: {value}}) => {
+                        this.opened = undefined;
+                        this.refresh();
+                        this.opened_disabled = false;
+                    })
+                    .catch(({response: {data: {error}}}) => {
+                        alert(error && error.message);
+                        this.opened_disabled = false;
+                    });
+            },
+        },
+    });
+    </script>
+{% endblock %}

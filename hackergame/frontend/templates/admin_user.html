@@ -1,0 +1,258 @@
+{% extends "admin_base.html" %}
+
+{% block content %}
+    {% verbatim %}
+    <div id="content-main">
+        <ul class="object-tools">
+            <li><a href="#" @click.prevent="refresh">刷新</a></li>
+        </ul>
+        <form v-if="opened" @submit.prevent="opened_save">
+            <fieldset class="module aligned" :disabled="opened_disabled">
+                <h2 v-if="opened.pk">正在编辑 #{{ opened.pk }}</h2>
+                <h2 v-else>正在创建</h2>
+                <div class="form-row">
+                    <label class="required" for="form-group">用户组:</label>
+                    <select id="form-group" name="group" v-model="opened.group" required>
+                        <option v-for="(name, key) in groups" :value="key">{{ name }}</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label class="required" for="form-nickname">昵称:</label>
+                    <input class="vTextField" type="text" id="form-nickname" name="nickname" v-model="opened.nickname" required>
+                </div>
+                <div class="form-row">
+                    <a :href="`/admin/auth/user/${opened.pk}/change`">跳转到 Django 用户模型页面（配置权限）……</a>
+                </div>
+                <div class="form-row" v-if="account_pks[opened.pk]">
+                    <a :href="`/admin/frontend/account/${account}/change`" v-for="account in account_pks[opened.pk]">跳转到 Account 模型页面（查看登录方式信息）……</a>
+                </div>
+                <div class="form-row" v-if="account_pks[opened.pk] && account_pks[opened.pk].length > 0">
+                    <a @click.prevent="get_accountlog" href="#">获取 AccountLog 记录</a>
+                    <ul v-if="accountlog[opened.pk] && accountlog[opened.pk].length > 0">
+                        <li v-for="log in accountlog[opened.pk]">{{ log.content_type }}: {{ log.contents }}</li>
+                    </ul>
+                    <p v-else-if="accountlog[opened.pk]">（无结果）</p>
+                </div>
+                <div class="form-row">
+                    <label for="form-name">姓名:</label>
+                    <input class="vTextField" type="text" id="form-name" name="name" v-model="opened.name">
+                </div>
+                <div class="form-row">
+                    <label for="form-sno">学号:</label>
+                    <input class="vTextField" type="text" id="form-sno" name="sno" v-model="opened.sno">
+                </div>
+                <div class="form-row">
+                    <label for="form-tel">电话:</label>
+                    <input class="vTextField" type="tel" id="form-tel" name="tel" v-model="opened.tel">
+                </div>
+                <div class="form-row">
+                    <label for="form-email">邮箱:</label>
+                    <input class="vTextField" type="email" id="form-email" name="email" v-model="opened.email">
+                </div>
+                <div class="form-row">
+                    <label for="form-gender">性别:</label>
+                    <select id="form-gender" name="gender" v-model="opened.gender">
+                        <option value=""></option>
+                        <option value="male">男</option>
+                        <option value="female">女</option>
+                        <option value="other">其他</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label for="form-qq">QQ:</label>
+                    <input class="vTextField" type="text" id="form-qq" name="qq" v-model="opened.qq">
+                </div>
+                <div class="form-row">
+                    <label for="form-website">个人主页/博客:</label>
+                    <input class="vTextField" type="text" id="form-website" name="website" v-model="opened.website">
+                </div>
+                <div class="form-row">
+                    <label for="form-school">学院:</label>
+                    <input class="vTextField" type="text" id="form-school" name="school" v-model="opened.school">
+                </div>
+                <div class="form-row">
+                    <label for="form-grade">年级:</label>
+                    <input class="vTextField" type="text" id="form-grade" name="grade" v-model="opened.grade">
+                </div>
+                <div class="form-row">
+                    <label for="form-major">专业:</label>
+                    <input class="vTextField" type="text" id="form-major" name="major" v-model="opened.major">
+                </div>
+                <div class="form-row">
+                    <label for="form-campus">校区:</label>
+                    <input class="vTextField" type="text" id="form-campus" name="campus" v-model="opened.campus">
+                </div>
+                <div class="form-row">
+                    <label for="form-aff">了解比赛的渠道:</label>
+                    <input class="vTextField" type="text" id="form-aff" name="aff" v-model="opened.aff">
+                </div>
+                <div class="form-row">
+                    <label for="form-suspicious">是否标记为第一阶段封禁:</label>
+                    <input class="vCheckboxField" type="checkbox" id="form-suspicious" name="suspicious" v-model="opened.suspicious">
+                </div>
+                <div class="form-row">
+                    <label for="form-suspicious-reason">第一阶段封禁原因:</label>
+                    <input class="vTextField" type="text" id="form-suspicious-reason" name="suspicious-reason" v-model="opened.suspicious_reason">
+                </div>
+                <div class="form-row">
+                    <label for="form-suspicious-ddl">显示的第一阶段封禁联系截止时间:</label>
+                    <input class="vTextField" type="text" id="form-suspicious-ddl" name="suspicious-ddl" v-model="suspicious_ddl_input">
+                    <template v-if="suspicious_ddl_input">
+                        <div class="help" v-if="isNaN(new Date(suspicious_ddl_input).valueOf())"><strong>格式错误！</strong></div>
+                        <div class="help" v-else>本地时间: {{ new Date(suspicious_ddl_input).toLocaleString() }}<br>UTC 时间: {{ new Date(suspicious_ddl_input).toJSON() }}</div>
+                    </template>
+                </div>
+            </fieldset>
+            <div class="submit-row" v-show="!opened_disabled">
+                <input type="submit" class="default" value="保存">
+            </div>
+        </form>
+        <div class="module" id="changelist" style="display: block">
+            <p class="filter">
+                <a href="#" :class="{selected: filters.group===null}" @click.prevent="filters.group=null">全部</a>
+                <a v-for="(name, group) in groups" href="#" :class="{selected: filters.group===group}" @click.prevent="filters.group=group">{{ name }}</a>
+            </p>
+            <div class="results">
+                <table id="result_list">
+                    <thead>
+                    <tr>
+                        <th scope="col"><div class="text"><span>#</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>用户组</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>显示名</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>个人信息</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>姓名</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>学号</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>电话</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>邮箱</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>性别</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>QQ</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>个人主页/博客</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>学院</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>年级</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>专业</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>校区</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>了解比赛的渠道</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>标记为第一阶段封禁</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>第一阶段封禁原因</span></div><div class="clear"></div></th>
+                        <th scope="col"><div class="text"><span>第一阶段封禁联系截止时间</span></div><div class="clear"></div></th>
+                    </tr>
+                    </thead>
+                    <tbody v-if="objs">
+                    <tr v-if="filters.group?obj.group===filters.group:true" v-for="obj in objs" @click="open(obj)">
+                        <td>{{ obj.pk }}</td>
+                        <td>{{ groups[obj.group] }}</td>
+                        <td>{{ obj.display_name }}</td>
+                        <td><img v-if="obj.profile_ok" src="/static/admin/img/icon-yes.svg" alt="True"><img v-else src="/static/admin/img/icon-no.svg" alt="False"></td>
+                        <td>{{ obj.name }}</td>
+                        <td>{{ obj.sno }}</td>
+                        <td>{{ obj.tel }}</td>
+                        <td>{{ obj.email }}</td>
+                        <td>{{ {'':'','female':'女','male':'男','other':'其他'}[obj.gender] }}</td>
+                        <td>{{ obj.qq }}</td>
+                        <td>{{ obj.website }}</td>
+                        <td>{{ obj.school }}</td>
+                        <td>{{ obj.grade }}</td>
+                        <td>{{ obj.major }}</td>
+                        <td>{{ obj.campus }}</td>
+                        <td>{{ obj.aff }}</td>
+                        <td><img v-if="obj.suspicious" src="/static/admin/img/icon-yes.svg" alt="True"><img v-else src="/static/admin/img/icon-no.svg" alt="False"></td>
+                        <td>{{ obj.suspicious_reason }}</td>
+                        <td>{{ obj.suspicious_ddl }}</td>
+                    </tr>
+                    </tbody>
+                </table>
+                <p v-if="!objs">（正在加载）</p>
+            </div>
+        </div>
+    </div>
+    {% endverbatim %}
+    {{ groups|json_script:'json-groups' }}
+    <script>
+    app = new Vue({
+        el: '#content-main',
+        data: {
+            groups: JSON.parse(document.getElementById('json-groups').textContent),
+            objs: undefined,
+            opened: undefined,
+            opened_disabled: false,
+            filters: {
+                group: null,
+            },
+            account_pks: {},
+            accountlog: {},
+            suspicious_ddl_input: '',
+        },
+        created() {
+            this.refresh();
+        },
+        methods: {
+            refresh() {
+                axios.post('.', {method: 'get_all'})
+                    .then(({data: {value}}) => {
+                        this.objs = value;
+                        // read hash
+                        if (location.hash.startsWith('#edit-')) {
+                            let pk = parseInt(location.hash.slice(6));
+                            for (let obj of this.objs) {
+                                if (obj.pk === pk) {
+                                    this.open(obj);
+                                    break;
+                                }
+                            }
+                        }
+                    })
+                    .catch(({response: {data: {error}}}) => {
+                        alert(error && error.message);
+                    });
+            },
+            open(obj) {
+                this.opened = {...obj};
+                this.suspicious_ddl_input = obj.suspicious_ddl || '';
+                axios.post('/account/', {method: 'account_pk', user: obj.pk})
+                    .then(({data: {value}}) => {
+                        this.$set(this.account_pks, obj.pk, value)
+                    })
+                    .catch(({response: {data: {error}}}) => {
+                        alert(error && error.message);
+                    });
+                location.hash = `#edit-${obj.pk}`;
+            },
+            opened_save() {
+                this.opened_disabled = true;
+                if (this.suspicious_ddl_input) {
+                    let suspicious_ddl = new Date(this.suspicious_ddl_input);
+                    if (isNaN(suspicious_ddl.valueOf())) {
+                        alert('时间格式错误');
+                        this.opened_disabled = false;
+                        return;
+                    }
+                    this.opened.suspicious_ddl = suspicious_ddl.toJSON();
+                } else {
+                    this.opened.suspicious_ddl = null;
+                }
+                axios.post('.', {method: 'save', args: this.opened})
+                    .then(({data: {value}}) => {
+                        this.opened = undefined;
+                        location.hash = '';
+                        this.refresh();
+                        this.opened_disabled = false;
+                    })
+                    .catch(({response: {data: {error}}}) => {
+                        alert(error && error.message);
+                        this.opened_disabled = false;
+                    });
+            },
+            get_accountlog() {
+                const pk = this.opened.pk;
+                axios.post('/account/', {method: 'accountlog', user: pk})
+                    .then(({data: {value}}) => {
+                        this.$set(this.accountlog, pk, value);
+                    })
+                    .catch(({response: {data: {error}}}) => {
+                        alert(error && error.message);
+                    });
+            }
+        },
+    });
+    </script>
+{% endblock %}

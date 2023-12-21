@@ -1,0 +1,20 @@
+SECRET_KEY = ''
+PRIVATE_KEY = '''
+openssl ecparam -name secp256k1 -genkey -noout
+'''
+CERTIFICATE = '''
+openssl req -x509 -key conf/local_settings.py -days 30
+'''
+GOOGLE_APP_SECRET = ''
+MICROSOFT_APP_SECRET = ''
+SMS_ACCESS_KEY_SECRET = ''
+SMTP_HOSTNAME = ''
+SMTP_USERNAME = ''
+SMTP_PASSWORD = ''
+EXTERNAL_LOGINS = {
+    'example': {
+        'url': 'https://lug.example.edu.cn/api/v1/sendmail',
+        'key': '1234567',
+        'use_smtp': False,
+    }
+}

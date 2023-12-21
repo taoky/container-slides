@@ -1,0 +1,38 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <link rel="stylesheet" type="text/css" href="{% static "admin/css/changelists.css" %}">
+    <link rel="stylesheet" type="text/css" href="{% static "admin/css/forms.css" %}">
+    <style>
+    #result_list tbody tr { cursor: pointer; }
+    #result_list tbody tr:hover { background-color: #808080; }
+    .filter a {
+        margin-right: 1em;
+    }
+    .filter a.selected {
+        color: inherit;
+        text-decoration: none;
+        font-weight: bold;
+    }
+    </style>
+    <script type="text/javascript" src="{% url 'admin:jsi18n' %}"></script>
+    <script src="{% static 'vue.min.js' %}"></script>
+    <script src="{% static 'axios.min.js' %}"></script>
+    <script src="{% static 'date.js' %}"></script>
+    <script>
+    axios.defaults.xsrfCookieName = 'csrftoken';
+    axios.defaults.xsrfHeaderName = 'X-CSRFToken';
+    </script>
+    <!-- {% csrf_token %} -->
+{% endblock %}
+
+{% block breadcrumbs %}
+    <div class="breadcrumbs">
+        <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+        &rsaquo; {{ title }}
+    </div>
+{% endblock %}
+
+{% block coltype %}flex{% endblock %}

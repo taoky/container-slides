@@ -1,0 +1,94 @@
+{% load i18n static %}
+
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+    <meta charset="UTF-8">
+    <!-- the width translates into minimum viewport width when initial scale is set -->
+    <meta name="viewport" content="width=1000, initial-scale=1">
+    <link rel="icon" type="image/svg+xml" href="{% static 'favicon.svg' %}">
+    <title>{% block title %}{{ page.title }}{% endblock %}</title>
+    <meta name="description" content="{% block description %}{{ page.description }}{% endblock %}">
+    <meta name="keywords" content="{% block keywords %}{{ page.keywords }}{% endblock %}">
+    {% block css %}
+        <link rel="stylesheet" href="{% static 'pure.min.css' %}">
+        <link rel="stylesheet" href="{% static 'grids-responsive.min.css' %}">
+        <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}">
+        <link rel="stylesheet" href="{% static 'main.css' %}">
+        <link rel="stylesheet" href="{% static 'code.css' %}">
+    {% endblock %}
+    {% block js %}
+        <script src="{% static 'date.js' %}"></script>
+    {% endblock %}
+    <!-- {% csrf_token %} -->
+</head>
+<body>
+<div class="banner">
+    <div class="nav content">
+        <a class="title" href="{% url 'hub' %}">{{ page.title }}</a>
+        <div class="pure-menu pure-menu-horizontal" style="width: auto">
+            <ul class="pure-menu-list">
+                <li class="pure-menu-item">
+                    <a class="pure-button" href="{% url 'announcements' %}">公告</a>
+                </li>
+                <li class="pure-menu-item">
+                    <a class="pure-button" href="{% url 'qa' %}">问与答</a>
+                </li>
+                {% if user_ %}
+                    <li class="pure-menu-item pure-menu-has-children pure-menu-allow-hover">
+                        <span class="pure-button">排行榜</span>
+                        <ul class="pure-menu-children">
+                            <li class="pure-menu-item"><a href="/credits/" class="pure-menu-link">幕后工作人员</a></li>
+                            <li class="pure-menu-item"><a href="/board/" class="pure-menu-link">总排名</a></li>
+                            {% if user_.is_staff %}
+                                {% for group, group_name in groups.items %}
+                                    <li class="pure-menu-item"><a href="/board/?group={{ group|urlencode }}" class="pure-menu-link">{{ group_name }}排名</a></li>
+                                {% endfor %}
+                            {% elif user_.group not in no_board_groups %}
+                                <li class="pure-menu-item"><a href="/board/?group={{ user_.group|urlencode }}" class="pure-menu-link">组内排名</a></li>
+                            {% endif %}
+                            <li class="pure-menu-item"><a href="/first/" class="pure-menu-link">总一血榜</a></li>
+                            {% if user_.is_staff %}
+                                {% for group, group_name in groups.items %}
+                                    <li class="pure-menu-item"><a href="/first/?group={{ group|urlencode }}" class="pure-menu-link">{{ group_name }}一血榜</a></li>
+                                {% endfor %}
+                            {% elif user_.group not in no_board_groups %}
+                                <li class="pure-menu-item"><a href="/first/?group={{ user_.group|urlencode }}" class="pure-menu-link">组内一血榜</a></li>
+                            {% endif %}
+                        </ul>
+                    </li>
+                {% endif %}
+                {% if user_ %}
+                    <li class="pure-menu-item">
+                        <a class="pure-button" href="{% url 'score' %}">分数</a>
+                    </li>
+                    <li class="pure-menu-item">
+                        <a class="pure-button" href="{% url 'profile' %}">个人信息</a>
+                    </li>
+                    <li class="pure-menu-item">
+                        <form action="{% url 'logout' %}" method="post" onsubmit="return confirm('确定要退出登录吗？')">
+                            {% csrf_token %}
+                            <button type="submit" class="pure-button logout">退出登录 {{ user_.display_name }}</button>
+                        </form>
+                    </li>
+                {% else %}
+                    <li class="pure-menu-item">
+                        <a class="pure-button pure-button-primary" href="{% url 'login' %}">注册/登录</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</div>
+<script src="{% static 'menus.js' %}"></script>
+<div class="content">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="msg-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+    {% block content %}
+    {% endblock %}
+</div>
+</body>
+</html>

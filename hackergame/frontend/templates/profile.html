@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block js %}
+    {{ block.super }}
+    <script src="{% static 'vue.min.js' %}"></script>
+    <script src="{% static 'axios.min.js' %}"></script>
+    <script>
+        axios.defaults.xsrfCookieName = 'csrftoken';
+        axios.defaults.xsrfHeaderName = 'X-CSRFToken';
+    </script>
+{% endblock %}
+
+{% block content %}
+    <h1>修改个人信息</h1>
+    {% verbatim %}
+    <form id="app" class="pure-form pure-form-aligned" @submit.prevent="submit">
+        <div v-if="false" class="msg-error">
+            如果你看到这条消息，说明你的浏览器版本过低或网络存在问题，导致比赛平台不能正常加载。请忽略以下显示的任何信息，换用最新版 Firefox 或 Chrome 浏览器访问比赛平台。
+        </div>
+        <div v-if="user.group==='banned'" class="msg-error">
+            由于违反规则，你的参赛资格已被取消，如有疑问请联系 <a href="mailto:hackergame@ustclug.org">hackergame@ustclug.org</a>，
+            并在邮件中粘贴下面的 token。
+        </div>
+        <div v-if="user && user.group==='banned'" class="msg-info">
+            <label for="token">Token:</label>
+            <button @click.prevent.stop="token_show=!token_show">{{ token_show?'隐藏':'显示' }}</button>
+            <input v-show="token_show" type="text" id="token" :value="user.token" readonly>
+            <button @click.prevent.stop="token_copy()">{{ token_copy_text }}</button>
+            Token 是一些题目的登录凭证，禁止分享，否则视为作弊
+        </div>
+        <div v-if="user && user.group==='other'" class="msg-info">
+            你目前所在组别是其他选手组，如需更换组别，请按<a href="/qa/">问与答</a>页面的指示的步骤向组委会发送邮件申请更换组别。
+        </div>
+        <div v-if="info.length" class="msg-info">
+            <div v-for="i in info">{{ i }}</div>
+        </div>
+        <div v-if="fields.nickname!==undefined" class="pure-control-group">
+            <label for="nickname">昵称</label>
+            <input type="text" id="nickname" name="nickname" v-model="user.nickname" :required="fields.nickname">
+        </div>
+        <div v-if="fields.name!==undefined" class="pure-control-group">
+            <label for="name">姓名</label>
+            <input type="text" id="name" name="name" v-model="user.name" :required="fields.name">
+        </div>
+        <div v-if="fields.sno!==undefined" class="pure-control-group">
+            <label for="sno">学号</label>
+            <input type="text" id="sno" name="sno" v-model="user.sno" :required="fields.sno">
+        </div>
+        <div v-if="fields.tel!==undefined" class="pure-control-group">
+            <label for="tel">电话</label>
+            <input type="tel" id="tel" name="tel" v-model="user.tel" :required="fields.tel">
+        </div>
+        <div v-if="fields.email!==undefined" class="pure-control-group">
+            <label for="email">邮箱</label>
+            <input type="email" id="email" name="email" v-model="user.email" :required="fields.email">
+        </div>
+        <div v-if="fields.gender!==undefined" class="pure-control-group">
+            <label for="gender">性别</label>
+            <select id="gender" name="gender" v-model="user.gender" :required="fields.gender">
+                <option value=""></option>
+                <option value="male">男</option>
+                <option value="female">女</option>
+                <option value="other">其他</option>
+            </select>
+        </div>
+        <div v-if="fields.qq!==undefined" class="pure-control-group">
+            <label for="qq">QQ</label>
+            <input type="text" id="qq" name="qq" v-model="user.qq" :required="fields.qq">
+        </div>
+        <div v-if="fields.website!==undefined" class="pure-control-group">
+            <label for="website">个人主页/博客</label>
+            <input type="text" id="website" name="website" v-model="user.website" :required="fields.website">
+        </div>
+        <div v-if="fields.school!==undefined" class="pure-control-group">
+            <label for="school">学院</label>
+            <input type="text" id="school" name="school" v-model="user.school" :required="fields.school">
+        </div>
+        <div v-if="fields.grade!==undefined" class="pure-control-group">
+            <label for="grade">年级</label>
+            <input type="text" id="grade" name="grade" v-model="user.grade" :required="fields.grade">
+        </div>
+        <div v-if="fields.major!==undefined" class="pure-control-group">
+            <label for="major">专业</label>
+            <input type="text" id="major" name="major" v-model="user.major" :required="fields.major">
+        </div>
+        <div v-if="fields.campus!==undefined" class="pure-control-group">
+            <label for="campus">校区</label>
+            <input type="text" id="campus" name="campus" v-model="user.campus" :required="fields.campus">
+        </div>
+        <div v-if="fields.aff!==undefined" class="pure-control-group">
+            <label for="aff">了解比赛的渠道</label>
+            <input type="text" id="aff" name="aff" v-model="user.aff" :required="fields.aff">
+        </div>
+        <div class="pure-controls">
+            <button type="submit" class="pure-button pure-button-primary" :disabled="submit_disabled">确认</button>
+        </div>
+    </form>
+    {% endverbatim %}
+    {{ user_.json|json_script:'json-user' }}
+    {{ profile_required|json_script:'json-profile_required' }}
+    <script>
+        function token_copy() {
+            let t = app.token_show;
+            app.token_show = true;
+            Vue.nextTick(function () {
+                let copyText = document.getElementById("token");
+                copyText.select();
+                copyText.setSelectionRange(0, 99999);
+                document.execCommand("copy");
+                app.token_show = t;
+                app.token_copy_text = '已复制';
+                setTimeout(function () {
+                    app.token_copy_text = '复制';
+                }, 1000);
+            });
+        }
+        let user = JSON.parse(document.getElementById('json-user').textContent);
+        let profile_required = JSON.parse(document.getElementById('json-profile_required').textContent);
+        let fields_required = {};
+        let info = [];
+        if (profile_required[user.group].length > 1) {
+            info.push('请正确填写以下信息以便赛后联系和颁奖');
+        }
+        for (let field of profile_required[user.group]) {
+            if (field.startsWith('/')) {
+                let fields = field.slice(1).split('/');
+                let minimum = Number(fields.pop());
+                fields.forEach(i => (fields_required[i] = false));
+                const names = {
+                    nickname: '昵称',
+                    name: '姓名',
+                    sno: '学号',
+                    tel: '电话',
+                    email: '邮箱',
+                    gender: '性别',
+                    qq: 'QQ',
+                    website: '个人主页/博客',
+                    school: '学院',
+                    grade: '年级',
+                    major: '专业',
+                    campus: '校区',
+                    aff: '了解比赛的渠道',
+                };
+                if (minimum) {
+                    info.push(fields.map(i => names[i]).join('、') + ` 至少填 ${minimum} 项`);
+                } else {
+                    info.push(fields.map(i => names[i]).join('、') + ` 可不填`);
+                }
+            } else {
+                fields_required[field] = true;
+            }
+        }
+        app = new Vue({
+            el: '#app',
+            data: {
+                user,
+                fields: fields_required,
+                info,
+                submit_disabled: false,
+                token_show: false,
+                token_copy_text: '复制',
+            },
+            methods: {
+                submit() {
+                    this.submit_disabled = true;
+                    axios.post('.', user)
+                        .then(() => {
+                            location.href = '/';
+                        })
+                        .catch(({response: {data: {error}}}) => {
+                            alert(error && error.message);
+                            this.submit_disabled = false;
+                        });
+                },
+            },
+        });
+    </script>
+{% endblock %}

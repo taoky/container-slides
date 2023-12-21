@@ -1,0 +1,277 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block css %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'katex/katex.min.css' %}">
+    <style>
+        .hover-tip-complete-count {
+            position: relative;
+        }
+        .hover-tip-content {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            z-index: 1;
+            background-color: #111;
+            color: #fff;
+            font-weight: normal;
+            text-align: start;
+            padding: 0.5em;
+            border-radius: 0.5em;
+            width: 17.2em;
+        }
+        .hover-tip-complete-count:hover .hover-tip-content {
+            display: block;
+        }
+    </style>
+{% endblock %}
+
+{% block js %}
+    {{ block.super }}
+    <script src="{% static 'vue.min.js' %}"></script>
+    <script src="{% static 'color.js' %}"></script>
+    <script src="{% static 'seedrandom.js' %}"></script>
+    <script src="{% static 'katex/katex.min.js' %}"></script>
+    <script src="{% static 'katex/auto-render.min.js' %}"></script>
+{% endblock %}
+
+{% block content %}
+    {% verbatim %}
+    <div id="app">
+        <div v-if="false" class="msg-error">
+            如果你看到这条消息，说明你的浏览器版本过低或网络存在问题，导致比赛平台不能正常加载。请忽略以下显示的任何信息，换用最新版 Firefox 或 Chrome 浏览器访问比赛平台。
+        </div>
+        <div v-if="announcement" class="msg-info">
+            <div v-html="announcement.content"></div>
+            <small>{{ new Date(announcement.time).toLocaleString() }}</small>
+            <a href="/announcements/">查看所有公告</a>
+        </div>
+        <div v-if="user.suspicious" class="msg-error">
+            经裁判组检查，你的账号有以下疑似违规行为：{{ user.suspicious_reason }}。
+            你的账号将会在 {{ new Date(user.suspicious_ddl).toLocaleString() }} 之后被封禁。
+            如果你有异议，请尽快联系 <a href="mailto:hackergame@ustclug.org">hackergame@ustclug.org</a>，
+            提供你的 Token 以及申诉理由。在封禁之前，你仍可正常参加比赛。
+        </div>
+        <div v-if="user" class="msg-info">
+            <label for="token">Token:</label>
+            <button @click="token_show=!token_show">{{ token_show?'隐藏':'显示' }}</button>
+            <input v-show="token_show" type="text" id="token" :value="user.token" readonly>
+            <button onclick="token_copy()">{{ token_copy_text }}</button>
+            Token 是一些题目的登录凭证，禁止分享，否则视为作弊
+            <template v-if="progress.scores.find(i=>i.category===null)">
+                <a href="/board/">
+                    <br>
+                    当前分数：{{ (progress.scores.find(i=>i.category===null)||{score:0}).score }}，
+                    总排名：{{ ranking["all"].ranking }} / {{ ranking["all"].total }}
+                    <a :href="`/board/?group=${encodeURIComponent(user.group)}`" v-if="ranking['group']">，{{ groups[user.group] }}组内排名：{{ ranking["group"].ranking }} / {{ ranking["group"].total }}</a>
+                    <br>
+                </a>
+                <template v-for="(category, category_index) in categories">
+                    {{ category_index ? '，' : '' }}
+                    <a v-if="user.group==='other'" :href="`/board/?category=${encodeURIComponent(category)}`">
+                        {{ category }}：{{ (progress.scores.find(i=>i.category===category)||{score:0}).score }}
+                    </a>
+                    <a v-else :href="`/board/?category=${encodeURIComponent(category)}&group=${encodeURIComponent(user.group)}`">
+                        {{ category }}：{{ (progress.scores.find(i=>i.category===category)||{score:0}).score }}
+                    </a>
+                </template>
+            </template>
+        </div>
+        <div v-if="user && user.code" class="msg-info">
+            欢迎加入科大及合作高校参赛交流 QQ 群：160476471。你的加群验证码：
+            <button @click="code_show=!code_show">{{ code_show?'隐藏':'显示' }}</button>
+            <input v-show="code_show" type="text" id="code" size="10" :value="user.code" readonly>
+        </div>
+        <div class="challenges">
+            <table class="pure-table pure-table-horizontal">
+                <thead>
+                    <tr>
+                        <th class="challenge-column">题目</th>
+                        <th></th>
+                        <th class="center narrow">分数</th>
+                        <th class="center narrow hover-tip-complete-count">
+                            完成人数 <i class="fas fa-question-circle"></i>
+                            <div class="hover-tip-content">对于有多个小题的题目，括号外表示解出所有小题的人数，括号内表示完成人数最多的小题的完成人数</div>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody v-if="challenges_error">
+                    <tr><td colspan="4" class="center">（{{ challenges_error.message }}）</td></tr>
+                    <tr v-if="user.is_staff">
+                        <td colspan="4" class="center"><a href="/admin/">管理</a></td>
+                    </tr>
+                </tbody>
+                <tbody v-else>
+                    <template v-for="challenge in challenges">
+                        <tr class="challenge" :class="{'challenge-highlight': challenge===opened}" @click="open(challenge)">
+                            <td>
+                                <i v-if="progress.challenges.some(i=>i.challenge===challenge.pk)" class="fas fa-check-circle fa-fw"></i>
+                                <i v-else-if="challenge.flags.length<=1" class="far fa-circle fa-fw"></i>
+                                <i v-else-if="challenge===opened" class="fas fa-caret-down fa-fw"></i>
+                                <i v-else class="fas fa-caret-right fa-fw"></i>
+                                {{ challenge.name }}
+                            </td>
+                            <td class="center narrow"><span class="category" :style="{backgroundColor: category_color(challenge.category)}">{{ challenge.category }}</span></td>
+                            <td class="center narrow">{{ challenge.score }}</td>
+                            <td class="center narrow">{{ get_challenge_count(challenge) }}</td>
+                        </tr>
+                        <tr v-if="challenge===opened && challenge.flags.length>1" v-for="(flag, flag_index) in challenge.flags" class="flag">
+                            <td>
+                                &nbsp;&nbsp;&nbsp;&nbsp;
+                                <i v-if="progress.flags.some(i=>i.challenge===challenge.pk&&i.flag===flag_index)" class="fas fa-check-circle fa-fw"></i>
+                                <i v-else class="far fa-circle fa-fw"></i>
+                                {{ flag.name }}
+                            </td>
+                            <td></td>
+                            <td class="center narrow">{{ flag.score }}</td>
+                            <td class="center narrow">{{ get_subchallenge_count(challenge, flag_index) }}</td>
+                        </tr>
+                    </template>
+                    <tr v-if="user.is_staff">
+                        <td colspan="4" class="center"><a href="/admin/">管理</a></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="main-body" v-if="opened">
+            <h1>{{ opened.name }}</h1>
+            <div id="challenge-detail" v-html="opened.detail.replace(/{token}/g, encodeURIComponent(user.token))"></div>
+            <form class="pure-form" method="post" :key="opened.pk">
+                {% endverbatim %}{% csrf_token %}{% verbatim %}
+                <a v-if="opened.url" class="pure-button pure-button-primary pure-input-rounded" target="_blank" rel="noopener" :href="opened.url.replace(/{token}/g, encodeURIComponent(user.token))">打开/下载题目</a>
+                <input type="hidden" name="challenge" :value="opened.pk">
+                <input type="text" name="flag" class="pure-input-rounded" maxlength="200" autocomplete="off" :placeholder="opened.prompt">
+                <button type="submit" class="pure-button pure-input-rounded">提交</button>
+            </form>
+        </div>
+        <div class="main-body" v-else v-html="page_content"></div>
+    </div>
+    {% endverbatim %}
+    {{ challenges|json_script:'json-challenges' }}
+    {{ page.content|json_script:'json-page_content' }}
+    {{ user_.json|json_script:'json-user' }}
+    {{ groups|json_script:'json-groups' }}
+    {{ progress|json_script:'json-progress' }}
+    {{ ranking|json_script:'json-ranking' }}
+    {{ clear_count|json_script:'json-clear_count' }}
+    {{ announcement|json_script:'json-announcement' }}
+    <script>
+        function token_copy() {
+            let t = app.token_show;
+            app.token_show = true;
+            Vue.nextTick(function () {
+                let copyText = document.getElementById("token");
+                copyText.select();
+                copyText.setSelectionRange(0, 99999);
+                document.execCommand("copy");
+                app.token_show = t;
+                app.token_copy_text = '已复制';
+                setTimeout(function () {
+                    app.token_copy_text = '复制';
+                }, 1000);
+            });
+        }
+        function update_math() {
+            const challengeDetailNode = document.querySelector("#challenge-detail");
+            if (challengeDetailNode) {
+                renderMathInElement(challengeDetailNode, {
+                    delimiters: [
+                        {left: "$$", right: "$$", display: true},
+                        {left: "$", right: "$", display: false},
+                        {left: "\\[", right: "\\]", display: true},
+                        {left: "\\(", right: "\\)", display: false},
+                    ],
+                });
+            }
+        }
+        let {value: challenges = [], error: challenges_error} =
+            JSON.parse(document.getElementById('json-challenges').textContent);
+        let name = decodeURIComponent(location.hash.slice(1));
+        let opened = undefined;
+        for (let challenge of challenges) {
+            if (challenge.name === name) {
+                opened = challenge;
+                break;
+            }
+        }
+        app = new Vue({
+            el: '#app',
+            data: {
+                challenges,
+                challenges_error,
+                page_content: JSON.parse(document.getElementById('json-page_content').textContent),
+                user: JSON.parse(document.getElementById('json-user').textContent),
+                groups: JSON.parse(document.getElementById('json-groups').textContent),
+                progress: JSON.parse(document.getElementById('json-progress').textContent),
+                ranking: JSON.parse(document.getElementById('json-ranking').textContent),
+                clear_count: JSON.parse(document.getElementById('json-clear_count').textContent),
+                announcement: JSON.parse(document.getElementById('json-announcement').textContent),
+                opened,
+                token_show: false,
+                token_copy_text: '复制',
+                code_show: false,
+            },
+            computed: {
+                categories() {
+                    return [...new Set(this.challenges.map(i => i.category))].sort();
+                },
+            },
+            methods: {
+                open(challenge) {
+                    this.opened = challenge;
+                    // We must prepend '#' in case the name itself
+                    // starts with '#'.
+                    // We only need to replace '%'. The browser will
+                    // take care of encoding Unicode characters.
+                    // To decode this:
+                    // decodeURIComponent(location.hash.slice(1))
+                    location.hash = '#' + challenge.name.replaceAll('%', '%25');
+                },
+                category_color(category) {
+                    let random = new Math.seedrandom(category);
+                    let color;
+                    do {
+                        color = new CIELUV(
+                            random() * 40 + 30,
+                            random() * 400 - 200,
+                            random() * 400 - 200,
+                        ).sRGB();
+                    } while (!color.valid());
+                    return color.hex();
+                },
+                get_challenge_count(challenge) {
+                    let count = (this.clear_count.challenges.find(i => i.challenge === challenge.pk) || {count: 0}).count;
+                    // are there any sub-flags?
+                    if (challenge.flags.length > 1) {
+                        let max_sub = 0;
+                        for (let j = 0; j < challenge.flags.length; j++) {
+                            let sub_count = this.get_subchallenge_count(challenge, j);
+                            if (sub_count > max_sub) {
+                                max_sub = sub_count;
+                            }
+                        }
+                        return `${count} (${max_sub})`;
+                    }
+                    return count;
+                },
+                get_subchallenge_count(challenge, flag_index) {
+                    let count = (this.clear_count.flags.find(i => i.challenge === challenge.pk && i.flag === flag_index) || {count: 0}).count;
+                    return count;
+                }
+            },
+            updated: function () {
+                this.$nextTick(function () {
+                    update_math();
+                })
+            },
+            mounted: function () {
+                this.$nextTick(function () {
+                    update_math();
+                })
+            }
+        });
+        {{ page.js|safe }}
+    </script>
+{% endblock %}

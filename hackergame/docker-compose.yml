@@ -1,0 +1,55 @@
+version: '2.3'
+
+services:
+  hackergame:
+    container_name: &name hackergame
+    hostname: *name
+    build: .
+    restart: always
+    environment:
+      - DJANGO_SETTINGS_MODULE=conf.settings.docker
+    volumes:
+      - .:/opt/hackergame/:ro
+      - hackergame-uwsgi:/run/uwsgi/app/hackergame-docker/
+      # 存储静态网页与题目文件
+      - hackergame-static:/var/opt/hackergame/
+    depends_on:
+      - memcached
+      - pgbouncer
+      - nginx
+  memcached:
+    container_name: memcached
+    image: memcached
+    restart: always
+  postgresql:
+    container_name: postgresql
+    image: postgres:15
+    restart: always
+    environment:
+      - POSTGRES_USER=hackergame
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=hackergame
+  pgbouncer:
+    container_name: pgbouncer
+    image: edoburu/pgbouncer:latest
+    restart: always
+    environment:
+      - DB_USER=hackergame
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=postgresql
+    depends_on:
+      - postgresql
+  nginx:
+    container_name: nginx
+    image: nginx:1.25
+    restart: always
+    volumes:
+      - ./conf/nginx-sites/hackergame-docker:/etc/nginx/conf.d/hackergame-docker:ro
+      - hackergame-static:/var/opt/hackergame/:ro
+      - hackergame-uwsgi:/run/uwsgi/app/hackergame-docker/:ro
+      - nginx-log:/var/log/nginx/:rw
+
+volumes:
+  hackergame-uwsgi:
+  hackergame-static:
+  nginx-log:

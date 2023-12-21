@@ -1,0 +1,13 @@
+version: "2"
+services:
+  desktop:
+    build: .
+    environment:
+      - DISPLAY=$DISPLAY
+      - XAUTHORITY=$XAUTHORITY
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - $XAUTHORITY:$XAUTHORITY
+      - /dev/dri:/dev/dri
+      - /run/user/1000/pipewire-0:/run/pipewire/pipewire-0
+      - /run/user/1000/pulse/native:/run/pulse/native
