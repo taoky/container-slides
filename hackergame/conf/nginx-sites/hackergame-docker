@@ -1,6 +1,7 @@
 server {
     listen 80;
-    server_name hack.lug.ustc.edu.cn;
+    #server_name hack.lug.ustc.edu.cn;
+    server_name _;
 
     charset utf-8;
     sendfile on;
@@ -31,7 +32,7 @@ server {
         expires 1h;
     }
     location / {
-        uwsgi_pass unix:///run/uwsgi/app/hackergame-docker/socket;
+        uwsgi_pass hackergame:2018;
         client_max_body_size 500M;
         include /etc/nginx/uwsgi_params;
     }
