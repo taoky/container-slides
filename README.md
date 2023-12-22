@@ -17,4 +17,5 @@
     - 运行需要重命名并修改 `.env.example` -> `.env`
     - 一部分文件还是需要按照 README 改
     - 思考这样的问题：各个容器之间互联用了 TCP socket（而不是 UNIX socket），考虑是什么？
+    - 因为时间仓促有一些 bug（比如说数据库忘了加 volume），最新版本参考 <https://github.com/ustclug/hackergame/pull/175>。
 - hmcl: Minecraft!
